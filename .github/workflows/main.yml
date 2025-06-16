@@ -75,7 +75,7 @@ jobs:
            cd '$WORK_DIR' && \
            echo '🔄 git fetch --all --prune' && git fetch --all --prune && \
            echo '📌 git checkout $MAIN_BRANCH' && git checkout '$MAIN_BRANCH' && \
-           echo '⬇️  git pull origin $MAIN_BRANCH' && git pull --ff-only origin '$MAIN_BRANCH' && \
+           echo '⬇️  git pull server $MAIN_BRANCH' && git pull --ff-only server '$MAIN_BRANCH' && \
            echo '✅ Pull completado'"
 
     # 7) Limpieza opcional
