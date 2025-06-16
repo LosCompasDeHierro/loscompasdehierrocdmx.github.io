@@ -1,4 +1,4 @@
-name: Pull from Server
+name: Pull from server
 
 on:
   push:
@@ -8,44 +8,31 @@ on:
 jobs:
   run_pull:
     runs-on: ubuntu-latest
-    # Exportamos también el puerto
     env:
-      SSH_USER:    ${{ secrets.SSH_USER }}
-      SSH_HOST:    ${{ secrets.SSH_HOST }}
-      SSH_PORT:    ${{ secrets.SSH_PORT }}
       WORK_DIR:    ${{ secrets.WORK_DIR }}
       MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Install SSH key
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+      # Carga segura de la clave
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Verify SSH connection
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ~/.ssh/id_rsa \
-              -p $SSH_PORT \
-              $SSH_USER@$SSH_HOST exit
+      # Añadimos host key
+      - run: |
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Connect and pull
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ~/.ssh/id_rsa \
-              -p $SSH_PORT \
-              $SSH_USER@$SSH_HOST << 'EOF'
+      # Prueba de conexión (opcional en verbose)
+      - run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} exit
+
+      # Pull en el server
+      - run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'EOF'
             set -e
-            cd "$WORK_DIR"
-            git checkout "$MAIN_BRANCH"
-            git pull server "$MAIN_BRANCH"
-          EOF
-
-      - name: Cleanup
-        run: rm -rf ~/.ssh
-
+            cd "${WORK_DIR}"
+            git fetch origin
+            git checkout "${MAIN_BRANCH}"
+            git pull origin "${MAIN_BRANCH}"
