@@ -27,9 +27,6 @@ jobs:
           ssh-add -L | head -n 1
           ssh-add -L | ssh-keygen -lf -           # usa stdin en vez de archivo
       
-      continue-on-error: true                   # <-- evita que falle el job:
-  
-      # Añadimos host key
       - run: |
           ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
