@@ -19,14 +19,14 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - run: |
-	# Lista las claves con hash (huella) y pública completa
-    	echo ">> Claves cargadas en ssh-agent"
-    	ssh-add -l         # solo fingerprint
-    	echo ">> Pública ☟"
-    	ssh-add -L | head -n 1
-	# Obtén fingerprint de la clave pública que estamos enviando
-    	ssh-add -L | ssh-keygen -lf -           # usa stdin en vez de archivo
+          echo ">> Claves cargadas en ssh-agent"
+          ssh-add -l         # solo fingerprint
+          echo ">> Pública ☟"
+          ssh-add -L | head -n 1
+          ssh-add -L | ssh-keygen -lf -           # usa stdin en vez de archivo
+      
       continue-on-error: true                   # <-- evita que falle el job:
   
       # Añadimos host key
