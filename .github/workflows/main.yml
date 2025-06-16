@@ -43,16 +43,6 @@ jobs:
         ssh-add -L | head -n 1 | ssh-keygen -lf -
       continue-on-error: true
 
-    - name: 🔍 Debug | dump remote authorized_keys
-      run: |
-        ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-        "echo '--- authorized_keys (últimas líneas) ---'; \
-        tail -n 5 ~/.ssh/authorized_keys || true; \
-        echo; echo 'Fingerprint de última línea:'; \
-        tail -n 1 ~/.ssh/authorized_keys | ssh-keygen -lf - || true"
-      continue-on-error: true
-
-
     # 4) Añade la host key del VPS para evitar StrictHostKeyChecking
     - name: Add VPS to known_hosts
       run: |
