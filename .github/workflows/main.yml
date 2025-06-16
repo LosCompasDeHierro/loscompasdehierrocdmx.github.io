@@ -1,44 +1,74 @@
-name: Pull from server
+name: Deploy – Pull on Server
 
 on:
+  # Desencadena cuando haya un push a main (o manualmente)
   push:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
   run_pull:
+    name: Pull desde el server
     runs-on: ubuntu-latest
+
+    # Variables que viajan desde Secrets
     env:
-      WORK_DIR:    ${{ secrets.WORK_DIR }}
-      MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
+      SSH_USER:    ${{ secrets.SSH_USER }}
+      SSH_HOST:    ${{ secrets.SSH_HOST }}
+      SSH_PORT:    ${{ secrets.SSH_PORT }}
+      WORK_DIR:    ${{ secrets.WORK_DIR }}     # /ruta/en/tu/vps
+      MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}  # normalmente "main"
 
     steps:
-      - uses: actions/checkout@v3
+    # 1) Clona el repo en el runner (obligatorio para GH Actions)
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-      # Carga segura de la clave
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    # 2) Arranca ssh-agent y carga la clave (usa ED25519)
+    - name: Start ssh-agent & add key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - run: |
-          echo ">> Claves cargadas en ssh-agent"
-          ssh-add -l         # solo fingerprint
-          echo ">> Pública ☟"
-          ssh-add -L | head -n 1
-          ssh-add -L | ssh-keygen -lf -           # usa stdin en vez de archivo
-      
-      - run: |
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+    # 3) DEBUG – muestra huellas y primera clave pública
+    - name: 🔍 Debug | Show keys in agent
+      run: |
+        echo ">> Fingerprints en ssh-agent"
+        ssh-add -l
+        echo
+        echo ">> Primera clave pública:"
+        ssh-add -L | head -n 1
+        echo
+        echo ">> Fingerprint de esa pública:"
+        ssh-add -L | head -n 1 | ssh-keygen -lf -
+      continue-on-error: true
 
-      # Prueba de conexión (opcional en verbose)
-      - run: |
-          ssh -vvv -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} exit
+    # 4) Añade la host key del VPS para evitar StrictHostKeyChecking
+    - name: Add VPS to known_hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
 
-      # Pull en el server
-      - run: |
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'EOF'
-            set -e
-            cd "${WORK_DIR}"
-            git fetch origin
-            git checkout "${MAIN_BRANCH}"
-            git pull origin "${MAIN_BRANCH}"
+    # 5) DEBUG – prueba conexión con -vvv (no falla si algo sale mal)
+    - name: 🔍 Debug | Test SSH connection (-vvv)
+      run: |
+        ssh -vvv -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" exit
+      continue-on-error: true
+
+    # 6) Ejecuta git pull en el servidor
+    - name: Remote git pull
+      run: |
+        echo "==> Conectando y ejecutando git pull en VPS..."
+        ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+          "set -euo pipefail && \
+           echo '📂 Dir de trabajo: $WORK_DIR' && \
+           cd '$WORK_DIR' && \
+           echo '🔄 git fetch --all --prune' && git fetch --all --prune && \
+           echo '📌 git checkout $MAIN_BRANCH' && git checkout '$MAIN_BRANCH' && \
+           echo '⬇️  git pull origin $MAIN_BRANCH' && git pull --ff-only origin '$MAIN_BRANCH' && \
+           echo '✅ Pull completado'"
+
+    # 7) Limpieza opcional
+    - name: Cleanup known_hosts
+      if: always()
+      run: rm -f ~/.ssh/known_hosts
