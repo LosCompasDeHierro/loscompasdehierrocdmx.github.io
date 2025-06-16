@@ -19,14 +19,18 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
+      
+      - run: |
+          ssh-add -l  # lista claves en el agente
+          ssh-keygen -lf ~/.ssh/id_rsa
+      
       # Añadimos host key
       - run: |
           ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       # Prueba de conexión (opcional en verbose)
       - run: |
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} exit
+          ssh -vvv -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} exit
 
       # Pull en el server
       - run: |
